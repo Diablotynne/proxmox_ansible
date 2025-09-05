@@ -1,0 +1,8 @@
+---
+- name: Créer l’OSD sur chaque nœud
+  ansible.builtin.command: >
+    pveceph createosd {{ ceph_osd_device }}
+
+- name: Pause après création OSD
+  ansible.builtin.pause:
+    seconds: "{{ ceph_pause_duration | default(10) }}"

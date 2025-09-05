@@ -1,0 +1,10 @@
+---
+- name: Initialiser le cluster Ceph avec réseau public et cluster
+  ansible.builtin.command: >
+    pveceph init
+    --network {{ ceph_public_network }}
+    --cluster-network {{ ceph_cluster_network }}
+
+- name: Pause après init
+  ansible.builtin.pause:
+    seconds: "{{ ceph_pause_duration | default(10) }}"

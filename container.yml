@@ -1,0 +1,41 @@
+---
+- name: Gestion du conteneur LXC
+  hosts: pxe21
+  gather_facts: false
+  vars:
+    template_storage: nfs
+    template_file: debian-12-standard_12.7-1_amd64.tar.zst
+    vmid: 150
+    hostname: debian12-lxc
+    storage: local-lvm
+    cores: 2
+    memory: 1024
+    bridge: vmbr0
+    ip: dhcp
+    ostype: debian
+    snapshot_name: init
+  tasks:
+    - name: Création du conteneur
+      import_role:
+        name: lxc
+        tasks_from: create
+      tags: create
+
+    - name: Création du snapshot
+      import_role:
+        name: lxc
+        tasks_from: snapshot
+      tags: snapshot
+
+    - name: Liste des snapshots
+      import_role:
+        name: lxc
+        tasks_from: list_snapshot
+      tags: list_snapshot
+
+    - name: Destruction du conteneur
+      import_role:
+        name: lxc
+        tasks_from: destroy
+      tags: destroy
+

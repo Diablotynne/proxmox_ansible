@@ -1,0 +1,18 @@
+---
+- name: Créer le MON + MGR sur le nœud maître
+  ansible.builtin.command: pveceph createmon
+  when: inventory_hostname == cluster_master_hostname
+
+- name: Pause après création du MON maître
+  ansible.builtin.pause:
+    seconds: "{{ ceph_pause_duration | default(20) }}"
+  when: inventory_hostname == cluster_master_hostname
+
+- name: Créer les MON sur les autres nœuds
+  ansible.builtin.command: pveceph createmon
+  when: inventory_hostname != cluster_master_hostname
+
+- name: Pause après création des MON secondaires
+  ansible.builtin.pause:
+    seconds: "{{ ceph_pause_duration | default(20) }}"
+  when: inventory_hostname != cluster_master_hostname

@@ -1,0 +1,16 @@
+---
+# Paquets système requis pour Python et l'automatisation
+python_packages:
+  - python3               # Interpréteur Python
+  - python3-pip           # Gestionnaire de paquets Python
+  - python3-apt           # Interface Python pour APT
+  - python3-pexpect       # Automatisation interactive
+  - sshpass               # Auth SSH non interactive
+
+# Modules Python à installer via pip
+pip_modules:
+  - proxmoxer             # API Python pour Proxmox
+
+# Interpréteurs configurables
+python_executable: python3
+pip_executable: pip3

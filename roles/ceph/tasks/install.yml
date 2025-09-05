@@ -1,0 +1,14 @@
+---
+- name: Gathering installed packages
+  ansible.builtin.package_facts:
+
+- name: Install Ceph packages
+  ansible.builtin.expect:
+    command: pveceph install --repository {{ ceph.repository | default('no-subscription') }} --version {{ ceph.version | default('squid') }}
+    responses:
+      'Do you want to continue\? \[Y/n\]': "y"
+  when: "'ceph' not in ansible_facts.packages"
+
+- name: Pause après installation
+  ansible.builtin.pause:
+    seconds: "{{ ceph_pause_duration | default(10) }}"

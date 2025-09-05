@@ -1,0 +1,24 @@
+---
+- name: Vérifier que le template LXC est présent
+  stat:
+    path: "/mnt/pve/{{ template_storage }}/template/cache/{{ template_file }}"
+  register: lxc_template
+
+- name: Échec si le template est absent
+  fail:
+    msg: "Le template {{ template_file }} est introuvable sur le stockage {{ template_storage }}."
+  when: not lxc_template.stat.exists
+
+- name: Créer le conteneur LXC {{ vmid }}
+  command: >
+    pct create {{ vmid }} {{ template_storage }}:vztmpl/{{ template_file }}
+    --hostname {{ hostname }}
+    --storage {{ storage }}
+    --cores {{ cores }}
+    --memory {{ memory }}
+    --net0 name=eth0,bridge={{ bridge }},ip={{ ip }}
+    --ostype {{ ostype }}
+    --start 1
+  args:
+    creates: "/etc/pve/nodes/{{ inventory_hostname }}/lxc/{{ vmid }}.conf"
+

@@ -1,0 +1,5 @@
+---
+# roles/lxc/tasks/snapshot.yml
+- name: Créer un snapshot du conteneur {{ vmid }}
+  command: pct snapshot {{ vmid }} {{ snapshot_name }}
+

@@ -1,0 +1,5 @@
+---
+ceph_cluster_network: "172.16.0.0/24"
+ceph_public_network: "192.168.67.0/24"
+ceph_osd_device: "/dev/sdd"
+ceph_interface: "vmbr2"

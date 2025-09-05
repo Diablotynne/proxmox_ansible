@@ -1,0 +1,8 @@
+---
+- name: Destruction du conteneur LXC {{ vmid }}
+  become: true
+  ansible.builtin.command: >
+    pct destroy {{ vmid }} --force
+  register: destroy_result
+  changed_when: "'destroyed' in destroy_result.stdout"
+  failed_when: destroy_result.rc != 0

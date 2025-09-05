@@ -1,0 +1,34 @@
+---
+- name: Vérifier si le pool ZFS existe
+  command: zpool list {{ zfs_pool_name }}
+  register: zfs_pool_check
+  changed_when: false
+  failed_when: false
+
+- name: Créer le pool ZFS miroir si absent
+  command: >
+    zpool create {{ zfs_pool_name }} mirror {{ zfs_devices | join(' ') }}
+  when:
+    - zfs_pool_check.rc != 0
+
+- name: Vérifier si le stockage ZFS est déjà déclaré
+  command: pvesm status
+  register: zfs_storage_check
+
+- name: Ajouter le pool ZFS comme stockage Proxmox
+  command: >
+    pvesm add zfspool {{ zfs_pool_name }}
+    --pool {{ zfs_pool_name }}
+    --content images,rootdir
+  register: zfs_storage_add
+  failed_when: "'already defined' not in zfs_storage_add.stderr"
+  when: "'{{ zfs_pool_name }}' not in zfs_storage_check.stdout"
+
+
+- name: Ajouter le stockage NFS Strasbourg (si applicable)
+  command: >
+    pvesm add nfs {{ nfs_storage_name }}
+    --server {{ nfs_server_ip }}
+    --export {{ nfs_export_path }}
+    --content {{ nfs_content_types }}
+  when: inventory_hostname == groups['proxmox_nodes'][0]

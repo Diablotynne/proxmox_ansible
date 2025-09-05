@@ -1,0 +1,5 @@
+---
+- name: Redémarrer corosync
+  ansible.builtin.systemd:
+    name: corosync
+    state: restarted

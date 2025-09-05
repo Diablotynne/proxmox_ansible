@@ -1,0 +1,33 @@
+---
+- name: Configurer le pont vmbr1 pour le cluster
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE vmbr1"
+    block: |
+      auto vmbr1
+      iface vmbr1 inet static
+        address 10.0.0.{{ inventory_hostname[-2:] }}
+        netmask 255.255.255.0
+        bridge_ports ens19
+        bridge_stp off
+        bridge_fd 0
+        comment cluster
+
+- name: Configurer le pont vmbr2 pour Ceph
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE vmbr2"
+    block: |
+      auto vmbr2
+      iface vmbr2 inet static
+        address 172.16.0.{{ inventory_hostname[-2:] }}
+        netmask 255.255.255.0
+        bridge_ports ens20
+        bridge_stp off
+        bridge_fd 0
+        comment ceph
+
+- name: Redémarrer le réseau
+  ansible.builtin.systemd:
+    name: networking
+    state: restarted

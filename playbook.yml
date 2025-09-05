@@ -1,0 +1,44 @@
+---
+- name: Déploiement initial des nœuds Proxmox (parallèle)
+  hosts: proxmox_nodes
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: apt
+      tags: [apt]
+
+    - role: python_env
+      tags: [python]
+
+    - role: network
+      tags: [network]
+
+    - role: storage
+      tags: [storage]
+
+    - role: admin
+      tags: [admin]
+
+- name: Initialisation du cluster (progression en série)
+  hosts: proxmox_nodes
+  serial: 1
+  gather_facts: false  # déjà fait dans le play précédent
+  become: true
+
+  roles:
+    - role: cluster
+      tags: [cluster]
+
+
+- name: déploiement Ceph (série)
+  hosts: proxmox_nodes
+  serial: 1
+  gather_facts: false  # déjà fait dans le play précédent
+  become: true
+
+  roles:
+    - role: ceph
+      tags: [ceph]
+
+

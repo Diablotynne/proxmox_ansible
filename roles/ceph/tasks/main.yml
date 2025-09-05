@@ -1,0 +1,15 @@
+---
+- name: Initialiser le cluster Ceph (réseaux et config)
+  import_tasks: init.yml
+
+- name: Installer les paquets Ceph
+  import_tasks: install.yml
+
+- name: Déployer les MON et le MGR
+  import_tasks: mon.yml
+
+- name: Créer les OSD sur chaque nœud
+  import_tasks: osd.yml
+
+- name: Création du pool Ceph
+  import_tasks: pool.yml

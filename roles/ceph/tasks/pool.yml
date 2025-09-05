@@ -1,0 +1,13 @@
+---
+- name: Créer le pool principal "ceph-data"
+  ansible.builtin.command: >
+    ceph osd pool create ceph-data 128
+
+- name: Définir le pool par défaut pour les images RBD
+  ansible.builtin.command: >
+    ceph osd pool application enable ceph-data rbd
+
+
+- name: Pause après création du pool
+  ansible.builtin.pause:
+    seconds: "{{ ceph_pause_duration | default(20) }}"

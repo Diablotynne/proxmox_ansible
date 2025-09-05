@@ -1,0 +1,18 @@
+---
+- name: Vérifier si l’utilisateur admin@pve existe
+  ansible.builtin.shell: "pveum user list | grep -q '^admin@pve'"
+  register: admin_user_check
+  changed_when: false
+  failed_when: false
+  when: inventory_hostname == "pxe21"
+
+- name: Créer l’utilisateur admin@pve si absent
+  ansible.builtin.command: "pveum user add admin@pve --password {{ admin_password }}"
+  when:
+    - inventory_hostname == "pxe21"
+    - admin_user_check.rc != 0
+
+- name: Assigner le rôle Administrator à admin@pve
+  ansible.builtin.command: "pveum acl modify / -user admin@pve -role Administrator"
+  when:
+    - inventory_hostname == "pxe21"

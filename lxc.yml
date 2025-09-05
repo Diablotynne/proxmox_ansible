@@ -1,0 +1,141 @@
+---
+- name: Gestion du conteneur LXC via API locale
+  hosts: pxe21
+  gather_facts: true
+
+  vars:
+    hostname: debian12-lxc
+    password: debian12
+    storage: local-lvm
+    cores: 2
+    memory: 1024
+    bridge: vmbr0
+    ip: dhcp
+    ostype: debian
+    template_file: debian-12-standard_12.7-1_amd64.tar.zst
+    template_storage: nfs-strasbourg
+    snapshot_name: init
+    node: pxe21
+
+  tasks:
+
+    - name: Vérifier que jq est installé
+      apt:
+        name: jq
+        state: present
+      become: true
+      tags: always
+
+    - name: Récupérer les VMIDs existants via pvesh
+      shell: "pvesh get /nodes/{{ node }}/lxc --output-format json | jq '.[].vmid'"
+      register: vmid_list
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}"
+      become: true
+      tags: always
+
+    - name: Définir le prochain vmid disponible
+      set_fact:
+        vmid: >-
+          {% set ids = vmid_list.stdout_lines | map('int') | list %}
+          {% if ids | length > 0 %}
+            {{ ids | max + 1 }}
+          {% else %}
+            100
+          {% endif %}
+      tags: always
+
+    - name: Créer le conteneur LXC
+      community.proxmox.proxmox:
+        api_host: "{{ ansible_host }}"
+        api_user: root@pam
+        api_password: proxmoxx
+        validate_certs: false
+        vmid: "{{ vmid }}"
+        node: "{{ node }}"
+        hostname: "{{ hostname }}"
+        password: "{{ password }}"
+        ostemplate: "{{ template_storage }}:vztmpl/{{ template_file }}"
+        disk: "{{ storage }}:8"
+        cores: "{{ cores }}"
+        memory: "{{ memory }}"
+        netif:
+          net0: "name=eth0,ip={{ ip }},bridge={{ bridge }}"
+        state: present
+      tags: create
+
+    - name: Créer un snapshot via pvesh
+      shell: "pvesh create /nodes/{{ node }}/lxc/{{ vmid }}/snapshot --snapname {{ snapshot_name }}"
+      delegate_to: "{{ inventory_hostname }}"
+      become: true
+      tags: snapshot
+
+    - name: Lister les snapshots via pvesh
+      shell: "pvesh get /nodes/{{ node }}/lxc/{{ vmid }}/snapshot --output-format json"
+      register: snapshot_list
+      changed_when: false
+      delegate_to: "{{ inventory_hostname }}"
+      become: true
+      tags: list_snapshot
+
+    - name: Afficher les snapshots
+      debug:
+        var: snapshot_list.stdout
+      tags: list_snapshot
+
+    - name: Supprimer le conteneur
+      community.proxmox.proxmox:
+        api_host: "{{ ansible_host }}"
+        api_user: root@pam
+        api_password: proxmoxx
+        validate_certs: false
+        vmid: "{{ vmid }}"
+        node: "{{ node }}"
+        state: absent
+      tags: destroy
+
+    - name: Modifier les ressources du conteneur
+      community.proxmox.proxmox:
+        api_host: "{{ ansible_host }}"
+        api_user: root@pam
+        api_password: proxmoxx
+        validate_certs: false
+        vmid: "{{ vmid }}"
+        node: "{{ node }}"
+        memory: 2048
+        cores: 4
+        state: present
+      tags: resize
+
+    - name: Redémarrer le conteneur
+      community.proxmox.proxmox:
+        api_host: "{{ ansible_host }}"
+        api_user: root@pam
+        api_password: proxmoxx
+        validate_certs: false
+        vmid: "{{ vmid }}"
+        node: "{{ node }}"
+        state: restarted
+      tags: restart
+
+    - name: Arrêter le conteneur
+      community.proxmox.proxmox:
+        api_host: "{{ ansible_host }}"
+        api_user: root@pam
+        api_password: proxmoxx
+        validate_certs: false
+        vmid: "{{ vmid }}"
+        node: "{{ node }}"
+        state: stopped
+      tags: stop
+
+    - name: Démarrer le conteneur
+      community.proxmox.proxmox:
+        api_host: "{{ ansible_host }}"
+        api_user: root@pam
+        api_password: proxmoxx
+        validate_certs: false
+        vmid: "{{ vmid }}"
+        node: "{{ node }}"
+        state: started
+      tags: start

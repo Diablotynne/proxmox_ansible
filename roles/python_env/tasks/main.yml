@@ -1,0 +1,19 @@
+---
+- name: Installer les paquets système requis
+  apt:
+    name: "{{ python_packages }}"
+    state: present
+    update_cache: true
+
+- name: Installer les modules pip manquants (PEP 668 contourné)
+  command: >
+    {{ pip_executable }} install {{ item }} --break-system-packages
+  loop: "{{ pip_modules }}"
+  register: pip_install_result
+  changed_when: "'Successfully installed' in pip_install_result.stdout"
+  ignore_errors: false
+
+- name: Définir l’interpréteur Python pour Ansible
+  set_fact:
+    ansible_python_interpreter: "/usr/bin/{{ python_executable }}"
+

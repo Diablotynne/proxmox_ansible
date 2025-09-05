@@ -1,0 +1,117 @@
+---
+- name: Collecter les facts réseau
+  ansible.builtin.setup:
+    gather_subset:
+      - network
+
+- name: Définir l'adresse IP de vmbr1 si disponible
+  ansible.builtin.set_fact:
+    vmbr1_ip: "{{ ansible_vmbr1.ipv4.address }}"
+  when: ansible_vmbr1 is defined and ansible_vmbr1.ipv4 is defined
+
+- name: Définir si le nœud est maître
+  ansible.builtin.set_fact:
+    is_master: "{{ inventory_hostname == cluster_master_hostname }}"
+
+- name: Afficher le rôle du nœud
+  ansible.builtin.debug:
+    msg: "Ce nœud est {{ 'maître' if is_master else 'secondaire' }} du cluster."
+
+- name: Créer le cluster sur le nœud maître
+  community.proxmox.proxmox_cluster:
+    state: present
+    api_host: "{{ vmbr1_ip }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    link0: "{{ vmbr1_ip }}"
+    cluster_name: "{{ cluster_name }}"
+  when: is_master
+
+- name: Obtenir un ticket d'authentification Proxmox
+  ansible.builtin.uri:
+    url: "https://{{ hostvars[cluster_master_hostname]['vmbr1_ip'] }}:8006/api2/json/access/ticket"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ proxmox_user }}"
+      password: "{{ proxmox_password }}"
+    validate_certs: false
+  register: auth_response
+
+- name: Définir le cookie d'authentification
+  ansible.builtin.set_fact:
+    proxmox_ticket: "{{ auth_response.json.data.ticket }}"
+    proxmox_cookie: "PVEAuthCookie={{ auth_response.json.data.ticket }}"
+
+- name: Vérifier si le nœud est déjà dans le cluster
+  ansible.builtin.uri:
+    url: "{{ proxmox_api_url }}/nodes"
+    method: GET
+    headers:
+      Cookie: "{{ proxmox_cookie }}"
+    validate_certs: false
+  register: cluster_nodes
+
+- name: Définir si le nœud est déjà membre
+  ansible.builtin.set_fact:
+    node_in_cluster: "{{ inventory_hostname in (cluster_nodes.json.data | map(attribute='node') | list) }}"
+
+- name: Récupérer les infos de jointure du cluster
+  community.proxmox.proxmox_cluster_join_info:
+    api_host: "{{ cluster_master_ip }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+  register: proxmox_cluster_join_info
+  when: not is_master
+
+- name: Vérifier que le cluster est prêt
+  ansible.builtin.uri:
+    url: "{{ proxmox_api_url }}/cluster/status"
+    method: GET
+    headers:
+      Cookie: "{{ proxmox_cookie }}"
+    validate_certs: false
+  register: cluster_status
+  until: >
+    (cluster_status.json.data | selectattr('type','equalto','cluster') | list | length > 0)
+    and
+    (cluster_status.json.data | selectattr('type','equalto','cluster') | first).quorate == 1
+    and
+    (cluster_status.json.data | selectattr('type','equalto','node') | map(attribute='online') | list | min) == 1
+  retries: 10
+  delay: 5
+
+- name: Ajouter le nœud au cluster
+  community.proxmox.proxmox_cluster:
+    api_host: "{{ vmbr1_ip }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    cluster_name: "{{ cluster_name }}"
+    fingerprint: "{{ proxmox_cluster_join_info.cluster_join.nodelist[0].pve_fp }}"
+    link0: "{{ vmbr1_ip }}"
+    master_ip: "{{ cluster_master_ip }}"
+    state: present
+  when:
+    - not is_master
+    - not node_in_cluster | bool
+
+# Création du dossier RRD sur le nœud maître
+- name: Créer le dossier parent RRD si manquant
+  ansible.builtin.file:
+    path: "/var/lib/rrdcached/db/pve-storage-9.0"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  delegate_to: "{{ groups['proxmox_nodes'][0] }}"
+  when: not node_in_cluster | bool
+
+- name: Créer le dossier RRD pour le nœud si manquant
+  ansible.builtin.file:
+    path: "/var/lib/rrdcached/db/pve-storage-9.0/{{ inventory_hostname }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  delegate_to: "{{ groups['proxmox_nodes'][0] }}"
+  when: not node_in_cluster | bool

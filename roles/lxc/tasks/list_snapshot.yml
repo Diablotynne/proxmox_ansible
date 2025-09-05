@@ -1,0 +1,9 @@
+---
+# roles/lxc/tasks/list_snapshots.yml
+- name: Lister les snapshots du conteneur {{ vmid }}
+  command: pct snapshot {{ vmid }} list
+  register: snapshot_list
+
+- name: Afficher les snapshots
+  debug:
+    var: snapshot_list.stdout

@@ -1,0 +1,66 @@
+---
+- name: Supprimer le dépôt PVE Enterprise
+  ansible.builtin.deb822_repository:
+    name: pve-enterprise
+    state: absent
+
+- name: Supprimer le dépôt Ceph Enterprise
+  ansible.builtin.deb822_repository:
+    name: ceph
+    state: absent
+
+- name: Ajouter le dépôt PVE no-subscription
+  ansible.builtin.deb822_repository:
+    name: pve-no-subscription
+    types: deb
+    uris: http://download.proxmox.com/debian/pve
+    suites: trixie
+    components: [pve-no-subscription]
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+- name: Ajouter le dépôt Ceph no-subscription
+  ansible.builtin.deb822_repository:
+    name: ceph-no-subscription
+    types: deb
+    uris: http://download.proxmox.com/debian/ceph-squid
+    suites: trixie
+    components: [no-subscription]
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+- name: Nettoyer le cache APT si corrompu
+  ansible.builtin.file:
+    path: /var/lib/apt/lists
+    state: directory
+    mode: '0755'
+    recurse: true
+
+- name: Mettre à jour les paquets avec retry
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: full
+    autoremove: true
+  register: apt_update
+  until: apt_update is succeeded
+  retries: 3
+  delay: 20
+
+- name: Adblock interface PVE
+  ansible.builtin.replace:
+    path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+    regexp: "(?:void\\(\\{ //)?\\s*(Ext\\.Msg\\.show\\(\\{[\\s\\n]*title: gettext\\('No valid sub)"
+    replace: "void({ //\\1"
+  notify: Restart pveproxy
+
+- name: Vérifier si un redémarrage est requis
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file
+
+- name: Redémarrer le serveur si nécessaire
+  ansible.builtin.reboot:
+    msg: "Redémarrage automatique après mise à jour"
+    connect_timeout: 5
+    reboot_timeout: 600
+    test_command: uptime
+  when: reboot_required_file.stat.exists
+

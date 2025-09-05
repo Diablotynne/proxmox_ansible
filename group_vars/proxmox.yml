@@ -1,0 +1,21 @@
+---
+ansible_user: root
+ansible_ssh_private_key_file: /root/.ssh/id_ed25519
+ansible_python_interpreter: /usr/bin/python3
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+
+# Authentification Proxmox
+proxmox_user: root@pam
+proxmox_password: proxmoxx
+
+# ZFS
+zfs_pool_name: zfs-pool1
+zfs_devices:
+  - sdb
+  - sdc
+
+# NFS Strasbourg
+nfs_storage_name: nfs-strasbourg
+nfs_server_ip: 192.168.67.181
+nfs_export_path: /mnt/ISO
+nfs_content_types: iso
